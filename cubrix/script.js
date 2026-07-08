@@ -1,186 +1,131 @@
-// --- RELÓGIO (DO SEU JS EXTRA) ---
-function showTime() {
-    const el = document.getElementById('currentTime');
-    if (el) el.innerHTML = new Date().toUTCString();
-}
-showTime();
-setInterval(showTime, 1000);
-
-// --- SETUP DO JOGO ---
-const boardCanvas = document.getElementById('game');
-const ctx = boardCanvas.getContext('2d');
-const COLS = 10, ROWS = 20, CELL_SIZE = boardCanvas.width / COLS;
-let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-let score = 0, linesCleared = 0;
-
-const PIECES = {
-    I: [[1, 1, 1, 1]],
-    O: [[1, 1], [1, 1]],
-    T: [[0, 1, 0], [1, 1, 1]],
-    S: [[0, 1, 1], [1, 1, 0]],
-    Z: [[1, 1, 0], [0, 1, 1]],
-    J: [[1, 0, 0], [1, 1, 1]],
-    L: [[0, 0, 1], [1, 1, 1]]
-};
-
-const COLORS = {
-    I: '#21c064', O: '#f2c94c', T: '#f2994a',
-    S: '#eb5757', Z: '#2d9cdb', J: '#9b51e0', L: '#56ccf2'
-};
-
-const nextCanvas = document.getElementById('nextBox');
-const ctxNext = nextCanvas.getContext('2d');
-nextCanvas.width = nextCanvas.height = 80;
-const NEXT_CELL = nextCanvas.width / 4;
-
-function drawNextPiece(type) {
-    ctxNext.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-    const piece = PIECES[type];
-    piece.forEach((row, y) => row.forEach((v, x) => {
-        if (v) {
-            ctxNext.fillStyle = COLORS[type];
-            ctxNext.fillRect(x * NEXT_CELL, y * NEXT_CELL, NEXT_CELL, NEXT_CELL);
-            ctxNext.strokeStyle = '#0c1530';
-            ctxNext.strokeRect(x * NEXT_CELL, y * NEXT_CELL, NEXT_CELL, NEXT_CELL);
-        }
-    }));
+:root {
+    --bg: #0f1629;
+    --panel: #17213b;
+    --accent: #7ee787;
+    --text: #e6edf3;
+    --shadow: 0 5px 15px rgba(0,0,0,.4);
 }
 
-function drawBoard() {
-    ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
-    board.forEach((row, y) => row.forEach((v, x) => {
-        if (v) {
-            ctx.fillStyle = COLORS[v];
-            ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            ctx.strokeStyle = '#0f1629';
-            ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-        }
-    }));
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: fixed;
+    touch-action: none;
+    background: #0a0f1c;
 }
 
-function collide(board, piece, offset) {
-    for (let y = 0; y < piece.length; y++)
-        for (let x = 0; x < piece[y].length; x++)
-            if (piece[y][x] && (board[y + offset.y] && board[y + offset.y][x + offset.x]) !== 0) return true;
-    return false;
+body {
+    background: radial-gradient(circle at 20% 10%, #132042, #0b1222 60%, #0a0f1c 100%);
+    color: var(--text);
+    font: 500 14px/1.2 system-ui, Arial;
+    display: flex;
+    align-items: center; 
+    justify-content: center;
+    padding: 20px;
 }
 
-function merge(board, piece, offset, type) {
-    piece.forEach((row, y) => row.forEach((v, x) => { if (v) board[y + offset.y][x + offset.x] = type; }));
+.wrap {
+    display: grid;
+    grid-template-columns: auto 160px;
+    gap: 10px;
+    width: 98vw;
+    max-height: 98vh;
 }
 
-function sweep() {
-    let lines = 0;
-    outer: for (let y = ROWS - 1; y >= 0; y--) {
-        for (let x = 0; x < COLS; x++) if (board[y][x] === 0) continue outer;
-        board.splice(y, 1); board.unshift(Array(COLS).fill(0)); y++; lines++;
-    }
-    if (lines > 0) {
-        linesCleared += lines; score += lines * 100;
-        document.getElementById('score').textContent = score;
-        document.getElementById('lines').textContent = linesCleared;
-    }
+.board {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-function rotate(piece) { return piece[0].map((_, i) => piece.map(row => row[i])).reverse(); }
-function randomPiece() { return Object.keys(PIECES)[Math.floor(Math.random() * 7)]; }
-
-let current = { type: null, piece: null, pos: { x: 0, y: 0 } };
-let nextType = randomPiece();
-
-function spawnPiece() {
-    current.type = nextType;
-    current.piece = PIECES[current.type];
-    current.pos.x = Math.floor(COLS / 2 - current.piece[0].length / 2);
-    current.pos.y = 0;
-    nextType = randomPiece();
-    drawNextPiece(nextType);
-    if (collide(board, current.piece, current.pos)) {
-        alert('Game Over!');
-        resetGame();
-    }
+.title {
+    color: #5C6AC4;
+    font-weight: 900;
+    font-size: 20px;
+    margin: 0;
+    text-align: center;
 }
 
-function move(dir) { current.pos.x += dir; if (collide(board, current.piece, current.pos)) current.pos.x -= dir; }
-function drop() {
-    current.pos.y++;
-    if (collide(board, current.piece, current.pos)) {
-        current.pos.y--;
-        merge(board, current.piece, current.pos, current.type);
-        sweep();
-        spawnPiece();
-    }
-    draw();
+#currentTime {
+    font-family: monospace;
+    font-size: 10px;
+    opacity: 0.5;
+    margin-bottom: 5px;
 }
 
-function rotatePiece() {
-    const rotated = rotate(current.piece);
-    const posX = current.pos.x;
-    let offset = 0;
-    current.piece = rotated;
-    while (collide(board, current.piece, current.pos)) {
-        current.pos.x += (offset = (offset > 0 ? -offset : 1));
-        if (offset > rotated[0].length) {
-            current.piece = rotate(rotate(rotate(rotated)));
-            current.pos.x = posX;
-            return;
-        }
-    }
+.canvas-wrap {
+    position: relative;
+    width: 200px;
+    height: 400px;
 }
 
-function hardDrop() {
-    while (!collide(board, current.piece, { x: current.pos.x, y: current.pos.y + 1 })) {
-        current.pos.y++;
-    }
-    drop();
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    background: #0c1530;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
 }
 
-function draw() {
-    drawBoard();
-    current.piece.forEach((row, y) => row.forEach((v, x) => {
-        if (v) {
-            ctx.fillStyle = COLORS[current.type];
-            ctx.fillRect((x + current.pos.x) * CELL_SIZE, (y + current.pos.y) * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            ctx.strokeStyle = '#0f1629';
-            ctx.strokeRect((x + current.pos.x) * CELL_SIZE, (y + current.pos.y) * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-        }
-    }));
+.side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
 }
 
-let dropCounter = 0, dropInterval = 500, lastTime = 0;
-function update(time = 0) {
-    const delta = time - lastTime; lastTime = time;
-    dropCounter += delta;
-    if (dropCounter > dropInterval) { drop(); dropCounter = 0; }
-    draw();
-    requestAnimationFrame(update);
+.card {
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: var(--shadow);
 }
 
-function resetGame() {
-    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-    score = 0; linesCleared = 0;
-    document.getElementById('score').textContent = score;
-    document.getElementById('lines').textContent = linesCleared;
-    nextType = randomPiece();
-    spawnPiece();
+.card .label {
+    font-weight: 800;
+    font-size: 9px;
+    text-transform: uppercase;
+    opacity: .6;
 }
-document.getElementById('restart').addEventListener('click', resetGame);
 
-const keysToBlock = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'];
-window.addEventListener('keydown', function (e) {
-    if (keysToBlock.includes(e.key) || e.code === 'Space') e.preventDefault();
-    const key = e.key.toLowerCase();
-    if (key === 'arrowleft' || key === 'a') move(-1);
-    else if (key === 'arrowright' || key === 'd') move(1);
-    else if (key === 'arrowdown' || key === 's') drop();
-    else if (key === 'arrowup' || key === 'w') rotatePiece();
-    else if (e.code === 'Space') hardDrop();
-    draw();
-}, { passive: false });
+.big { font-size: 18px; font-weight: 900; color: #fff; }
 
-window.addEventListener('wheel', e => e.preventDefault(), { passive: false });
-window.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+#nextBox {
+    width: 60px;
+    height: 60px;
+    margin: 5px auto;
+    background: #0c1530;
+    border-radius: 6px;
+}
 
-spawnPiece();
-update();
+.controls p { margin: 3px 0; font-size: 10px; }
+.controls kbd {
+    background: #101a34;
+    border: 1px solid #24325a;
+    border-bottom-width: 2px;
+    padding: 1px 3px;
+    border-radius: 3px;
+}
 
+.btn {
+    width: 100%;
+    background: #2a3c76;
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 5px;
+    font-size: 11px;
+}
